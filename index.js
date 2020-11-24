@@ -505,6 +505,34 @@ function afterTransform (err, data) {
   this._writableState.afterWrite(err)
 }
 
+function mapAsync (asyncOrNot) {
+  if (asyncOrNot.length === 0) {
+    return function (cb) {
+      const p = asyncOrNot.call(this)
+      if (!p) return
+      p.then(
+        data => cb(null, data),
+        cb
+      )
+    }
+  }
+  return asyncOrNot
+}
+
+function mapAsync1 (asyncOrNot) {
+  if (asyncOrNot.length === 1) {
+    return function (arg, cb) {
+      const p = asyncOrNot.call(this, arg)
+      if (!p) return
+      p.then(
+        data => cb(null, data),
+        cb
+      )
+    }
+  }
+  return asyncOrNot
+}
+
 class Stream extends EventEmitter {
   constructor (opts) {
     super()
@@ -514,8 +542,8 @@ class Stream extends EventEmitter {
     this._writableState = null
 
     if (opts) {
-      if (opts.open) this._open = opts.open
-      if (opts.destroy) this._destroy = opts.destroy
+      if (opts.open) this._open = mapAsync(opts.open)
+      if (opts.destroy) this._destroy = mapAsync(opts.destroy)
       if (opts.predestroy) this._predestroy = opts.predestroy
       if (opts.signal) {
         opts.signal.addEventListener('abort', abort.bind(this))
@@ -598,7 +626,7 @@ class Readable extends Stream {
     this._readableState = new ReadableState(this, opts)
 
     if (opts) {
-      if (opts.read) this._read = opts.read
+      if (opts.read) this._read = mapAsync(opts.read)
     }
   }
 
@@ -754,9 +782,9 @@ class Writable extends Stream {
     this._writableState = new WritableState(this, opts)
 
     if (opts) {
-      if (opts.writev) this._writev = opts.writev
-      if (opts.write) this._write = opts.write
-      if (opts.final) this._final = opts.final
+      if (opts.writev) this._writev = mapAsync1(opts.writev)
+      if (opts.write) this._write = mapAsync1(opts.write)
+      if (opts.final) this._final = mapAsync(opts.final)
     }
   }
 
@@ -795,9 +823,9 @@ class Duplex extends Readable { // and Writable
     this._writableState = new WritableState(this, opts)
 
     if (opts) {
-      if (opts.writev) this._writev = opts.writev
-      if (opts.write) this._write = opts.write
-      if (opts.final) this._final = opts.final
+      if (opts.writev) this._writev = mapAsync1(opts.writev)
+      if (opts.write) this._write = mapAsync1(opts.write)
+      if (opts.final) this._final = mapAsync(opts.final)
     }
   }
 
@@ -830,8 +858,8 @@ class Transform extends Duplex {
     this._transformState = new TransformState(this)
 
     if (opts) {
-      if (opts.transform) this._transform = opts.transform
-      if (opts.flush) this._flush = opts.flush
+      if (opts.transform) this._transform = mapAsync1(opts.transform)
+      if (opts.flush) this._flush = mapAsync(opts.flush)
     }
   }
 
