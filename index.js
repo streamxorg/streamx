@@ -521,7 +521,9 @@ class Stream extends EventEmitter {
         if (opts.signal.aborted) {
           throw new Error('Stream aborted.')
         }
-        opts.signal.addEventListener('abort', abort.bind(this))
+        const handler = abort.bind(this)
+        this._clearSignal = clearSignal.bind(null, opts.signal, handler)
+        opts.signal.addEventListener('abort', handler)
       }
     }
   }
@@ -559,6 +561,9 @@ class Stream extends EventEmitter {
       if (!err) err = STREAM_DESTROYED
       this._duplexState = (this._duplexState | DESTROYING) & NON_PRIMARY
       this._predestroy()
+      if (this._clearSignal !== undefined) {
+        this._clearSignal()
+      }
       if (this._readableState !== null) {
         this._readableState.error = err
         this._readableState.updateNextTick()
@@ -907,6 +912,10 @@ function noop () {}
 
 function abort () {
   this.destroy(new Error('Stream aborted.'))
+}
+
+function clearSignal (signal, handler) {
+  signal.removeEventListener('abort', handler)
 }
 
 module.exports = {
