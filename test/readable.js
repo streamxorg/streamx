@@ -177,3 +177,48 @@ tape('from readable should return the original readable', function (t) {
   t.equal(Readable.from(r), r)
   t.end()
 })
+
+tape('async read option', async function (t) {
+  let index = 0
+  const data = ['a', 'b', 'c', null]
+  const r = new Readable({
+    async read () {
+      this.push(data[index++])
+    }
+  })
+  const res = []
+  for await (const entry of r) {
+    res.push(entry)
+  }
+  t.same(res, ['a', 'b', 'c'])
+  t.end()
+})
+
+tape('async open option', function (t) {
+  const r = new Readable({
+    open () {
+      return new Promise(resolve => setTimeout(resolve, 30))
+    }
+  })
+  const start = Date.now()
+  r.on('data', () => {
+    t.ok((Date.now() - start) > 25)
+    t.end()
+  })
+  r.push(1)
+  r.push(null)
+})
+
+tape('async destroy option', function (t) {
+  const r = new Readable({
+    destroy () {
+      return new Promise(resolve => setTimeout(resolve, 30))
+    }
+  })
+  r.push(null)
+  const start = Date.now()
+  r.on('close', () => {
+    t.ok((Date.now() - start) > 25)
+    t.end()
+  })
+})

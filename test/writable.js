@@ -101,3 +101,54 @@ tape('writev', function (t) {
     t.end()
   })
 })
+
+tape('async write option', async function (t) {
+  const r = new Writable({
+    write (data) {
+      t.equals(data, 'a')
+      return new Promise(resolve => setTimeout(resolve, 30))
+    }
+  })
+  const start = Date.now()
+  r.on('close', () => {
+    t.ok((Date.now() - start) > 25)
+    t.end()
+  })
+  r.end('a')
+})
+
+tape('async writev option', async function (t) {
+  const r = new Writable({
+    highWaterMark: 2,
+    byteLength () {
+      return 1
+    },
+    writev (data) {
+      t.same(data, ['a', 'b', 'c'])
+      return new Promise(resolve => setTimeout(resolve, 30))
+    }
+  })
+  const start = Date.now()
+  r.on('close', () => {
+    t.ok((Date.now() - start) > 25)
+    t.end()
+  })
+  r.write('a')
+  r.write('b')
+  r.write('c')
+  r.end()
+})
+
+tape('async final option', async function (t) {
+  const r = new Writable({
+    final () {
+      return new Promise(resolve => setTimeout(resolve, 30))
+    }
+  })
+  const start = Date.now()
+  r.on('close', () => {
+    t.ok((Date.now() - start) > 25)
+    t.end()
+  })
+  r.end()
+})
