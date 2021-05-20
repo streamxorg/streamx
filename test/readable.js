@@ -177,3 +177,18 @@ tape('from readable should return the original readable', function (t) {
   t.equal(Readable.from(r), r)
   t.end()
 })
+tape('push after push(null) should cause an error', function (t) {
+  t.plan(4)
+  const s = new Readable()
+  s.on('data', function (data) {
+    t.equals(data, 'a')
+  })
+  s.on('close', function () {
+    t.end()
+  })
+  t.equals(s.push('a'), true)
+  t.equals(s.push(null), false)
+  t.throws(function () {
+    s.push('b')
+  })
+})
