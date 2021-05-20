@@ -109,6 +109,7 @@ class WritableState {
     this.byteLength = byteLengthWritable || byteLength || defaultByteLength
     this.map = mapWritable || map
     this.afterWrite = afterWrite.bind(this)
+    this.writable = true
   }
 
   get ended () {
@@ -116,6 +117,7 @@ class WritableState {
   }
 
   push (data) {
+    this.updateNextTick()
     if (this.map !== null) data = this.map(data)
 
     this.buffered += this.byteLength(data)
@@ -141,9 +143,13 @@ class WritableState {
   }
 
   end (data) {
+    this.writable = false
+    this.updateNextTick()
     if (typeof data === 'function') this.stream.once('finish', data)
     else if (data !== undefined && data !== null) this.push(data)
     this.stream._duplexState = (this.stream._duplexState | WRITE_FINISHING) & WRITE_NON_PRIMARY
+    this.end = throwWriteAfterEnd
+    this.push = throwWriteAfterEnd
   }
 
   autoBatch (data, cb) {
@@ -247,11 +253,13 @@ class ReadableState {
   }
 
   push (data) {
+    this.updateNextTick()
     const stream = this.stream
 
     if (data === null) {
       this.highWaterMark = 0
       stream._duplexState = (stream._duplexState | READ_ENDING) & READ_NON_PRIMARY_AND_PUSHED
+      this.push = throwPushAfterEnd
       return false
     }
 
@@ -541,7 +549,7 @@ class Stream extends EventEmitter {
   }
 
   get writable () {
-    return this._writableState !== null ? true : undefined
+    return this._writableState !== null ? this._writableState.writable : undefined
   }
 
   get destroyed () {
@@ -619,7 +627,6 @@ class Readable extends Stream {
   }
 
   push (data) {
-    this._readableState.updateNextTick()
     return this._readableState.push(data)
   }
 
@@ -778,12 +785,10 @@ class Writable extends Stream {
   }
 
   write (data) {
-    this._writableState.updateNextTick()
     return this._writableState.push(data)
   }
 
   end (data) {
-    this._writableState.updateNextTick()
     this._writableState.end(data)
     return this
   }
@@ -821,7 +826,6 @@ class Duplex extends Readable { // and Writable
   }
 
   end (data) {
-    this._writableState.updateNextTick()
     this._writableState.end(data)
     return this
   }
@@ -961,6 +965,14 @@ function isTypedArray (data) {
 
 function defaultByteLength (data) {
   return isTypedArray(data) ? data.byteLength : 1024
+}
+
+function throwPushAfterEnd () {
+  throw new Error('Push after end.')
+}
+
+function throwWriteAfterEnd () {
+  throw new Error('Write after end.')
 }
 
 function noop () {}

@@ -101,3 +101,25 @@ tape('writev', function (t) {
     t.end()
   })
 })
+
+tape('repeat calls to .end() should cause an error', function (t) {
+  t.plan(5)
+  const s = new Writable({
+    write (data, cb) {
+      t.equals(data, 'a')
+      cb()
+    }
+  })
+  s.on('close', function () {
+    t.end()
+  })
+  t.equals(s.writable, true)
+  s.end('a')
+  t.equals(s.writable, false)
+  t.throws(function () {
+    s.end('b')
+  })
+  t.throws(function () {
+    s.write('c')
+  })
+})
