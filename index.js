@@ -1,6 +1,7 @@
 const { EventEmitter } = require('events')
 const STREAM_DESTROYED = new Error('Stream was destroyed')
 const PREMATURE_CLOSE = new Error('Premature close')
+const queueMicrotask = require('queue-microtask')
 
 const FIFO = require('fast-fifo')
 
@@ -198,7 +199,7 @@ class WritableState {
   updateNextTick () {
     if ((this.stream._duplexState & WRITE_NEXT_TICK) !== 0) return
     this.stream._duplexState |= WRITE_NEXT_TICK
-    process.nextTick(updateWriteNT, this)
+    queueMicrotask(updateWriteNT.bind(this, this))
   }
 }
 
@@ -357,7 +358,7 @@ class ReadableState {
   updateNextTick () {
     if ((this.stream._duplexState & READ_NEXT_TICK) !== 0) return
     this.stream._duplexState |= READ_NEXT_TICK
-    process.nextTick(updateReadNT, this)
+    queueMicrotask(updateReadNT.bind(this, this))
   }
 }
 
